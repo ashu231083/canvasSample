@@ -1,0 +1,45 @@
+/* canvas.component.css */
+.container {
+  position: relative;
+}
+
+.info-section {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  width: 30%;
+  max-width: 140px;
+  background-color: #f0f0f0;
+  padding: 10px;
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  bottom: 50px;
+  
+}
+
+.background-image {
+  display: none;
+  visibility: hidden;
+  z-index: 0;
+}
+
+.button-click,
+.click-erase {
+  font-size: 15px;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 20px;
+}
+
+.button-click {
+  background-color: green;
+  color: black;
+}
+
+.click-erase {
+  background-color: red;
+  color: black;
+}
+
+.input-container {
+  margin-bottom: 10px;
+}
