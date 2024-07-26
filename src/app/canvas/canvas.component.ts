@@ -1,5 +1,17 @@
-import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  ViewChild,
+  AfterViewInit,
+  inject,
+  TemplateRef,
+} from '@angular/core';
 import { fabric } from 'fabric';
+import { HttpService } from '../services/http.service';
+import { AppConstant } from '../services/app.constant';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { ToastService } from '../services/toast.service';
+import { ActivatedRoute } from '@angular/router';
 
 interface RectangleData {
   startPoint: fabric.Point;
@@ -18,6 +30,9 @@ interface RectangleData {
 export class CanvasComponent implements AfterViewInit {
   @ViewChild('canvas', { static: true })
   canvasRef!: ElementRef<HTMLCanvasElement>;
+
+  @ViewChild('content', { static: true })
+  content!: ElementRef<HTMLCanvasElement>;
   imgElement = document.getElementsByClassName('background-image');
   private canvas!: fabric.Canvas;
   private isDrawing: boolean = false;
@@ -25,14 +40,14 @@ export class CanvasComponent implements AfterViewInit {
   private isMovingRect: boolean = false; // Flag to indicate if we are moving an existing rectangle
   private startPoint: fabric.Point | null = null;
   private currentRect: fabric.Rect | null = null;
-  private label: fabric.Text | null = null;
+  public label: fabric.Text | null = null;
   private isMovingRectStarted: boolean = false;
   private labels: fabric.Text[] = [];
   rectangleName: string = '';
   private rectLabelMap: { [key: string]: fabric.Text | null } = {};
 
   private labelFontWeight: number = 5;
-  private labelFontSize: number = 20;
+  private labelFontSize: number = 10;
 
   currentHeight: number = 0;
   currentWidth: number = 0;
@@ -44,7 +59,147 @@ export class CanvasComponent implements AfterViewInit {
   rectangleHeight: any;
   nextRectangleId: number = 1;
 
-  constructor() {}
+  paperTypePatternData: any[] = [];
+  areaMetaMst: any[] = [];
+  fileUrl: string = '';
+  private modalService = inject(NgbModal);
+  // private toastService = inject(NgbToast);
+  is_area: string = '1';
+  is_type: string = '0';
+  paper_area_name: string = '';
+  paper_field_name: string = '';
+  toasts: any[] = [];
+  paperBlockArea: any[] = [];
+  paperAreaMeta: any[] = [];
+  paper_block_area_id: string = '';
+  paper_type_version_code: string | null = '';
+  selectedData: any;
+  previewLoading: boolean = false;
+  submitLoading: boolean = false;
+  deleteLoading: boolean = false;
+
+  constructor(
+    private http: HttpService,
+    public toastService: ToastService,
+    private activatedRoute: ActivatedRoute
+  ) {
+    this.activatedRoute.paramMap.subscribe((params) => {
+      if (params) {
+        this.paper_type_version_code = params.get('paper_type_version_code');
+        const result = this.activatedRoute.snapshot.data['data'];
+        if (result && result.success == AppConstant.App_Constant.RESPONSE_YES) {
+          this.paperTypePatternData = result.responseData.paperTypePatternData;
+          if (this.paperTypePatternData.length > 0) {
+            this.fileUrl =
+              AppConstant.App_Constant.FILE_URL +
+              this.paperTypePatternData[0].bg_file;
+          }
+          this.areaMetaMst = result.responseData.areaMetaMst;
+        }
+      }
+    });
+  }
+
+  openModal() {
+    this.modalService
+      .open(this.content, { ariaLabelledBy: 'modal-basic-title' })
+      .result.then(
+        (result) => {
+          //console.log("lalabhai result")
+        },
+        (reason) => {
+          this.deleteAllRectangles();
+        }
+      );
+  }
+
+  // getVersionData() {
+  //   let requestJSON = '{"paper_type_version_code":"'+this.paper_type_version_code+'"}';
+  //   let fd = new FormData();
+  //   fd.append('action', AppConstant.App_Action.GET_PAPERTYPE_VERSION);
+  //   fd.append('is_block_area', 'true');
+  //   fd.append('requestJSON', requestJSON);
+  //   this.http.httpCall(fd).subscribe((result) => {
+  //     if (result.success == AppConstant.App_Constant.RESPONSE_YES) {
+  //       this.paperTypePatternData = result.responseData.paperTypePatternData;
+  //       if (this.paperTypePatternData.length > 0) {
+  //         this.fileUrl =
+  //           AppConstant.App_Constant.FILE_URL +
+  //           this.paperTypePatternData[0].bg_file;
+  //       }
+  //       this.areaMetaMst = result.responseData.areaMetaMst;
+  //     }
+  //   });
+  // }
+
+  getAreaWithMeta() {
+    this.previewLoading = true;
+    let requestJSON =
+      '{"paper_type_version_code":"' + this.paper_type_version_code + '"}';
+    let fd = new FormData();
+    fd.append('action', AppConstant.App_Action.GET_BLOCK_AREA_META);
+    fd.append('is_block_area', 'true');
+    fd.append('requestJSON', requestJSON);
+    this.http.httpCall(fd).subscribe((result) => {
+      if (result.success == AppConstant.App_Constant.RESPONSE_YES) {
+        this.paperBlockArea = result.responseData.paperBlockArea;
+        this.paperAreaMeta = result.responseData.paperAreaMeta;
+        this.deleteAllRectangles();
+        this.previewLoading = false;
+        this.paperBlockArea.forEach((area) => {
+          const point = new fabric.Point(
+            Number(area.paper_area_left),
+            Number(area.paper_area_top)
+          );
+          const areaRect = new fabric.Rect({
+            left: point.x,
+            top: point.y,
+            width: Number(area.paper_area_width),
+            height: Number(area.paper_area_height),
+            fill: 'transparent',
+            stroke: 'green',
+            strokeDashArray: [5, 5],
+            strokeWidth: 2,
+            name: area.paper_area_name,
+            hoverCursor: 'default', // Set cursor to default when hovering
+            moveCursor: 'default',
+            data: { id: area.id, is_area: 1 },
+          });
+          this.canvas.add(areaRect);
+          this.showLabel(areaRect, area.paper_area_name);
+        });
+
+        this.paperAreaMeta.forEach((meta) => {
+          const raw = this.getRowByKey(this.areaMetaMst, meta.paper_field_name);
+          const name = raw.value;
+          const point = new fabric.Point(
+            Number(meta.paper_field_left),
+            Number(meta.paper_field_top)
+          );
+          const metaRect = new fabric.Rect({
+            left: point.x,
+            top: point.y,
+            width: Number(meta.paper_field_width),
+            height: Number(meta.paper_field_height),
+            fill: 'transparent',
+            stroke: 'blue',
+            strokeDashArray: [5, 5],
+            strokeWidth: 2,
+            name: meta.id,
+            hoverCursor: 'default',
+            moveCursor: 'default',
+            data: { id: meta.id, is_area: 0 },
+          });
+          this.canvas.add(metaRect);
+          this.showLabel(metaRect, name);
+        });
+      }
+    });
+  }
+
+  getRowByKey(data: any[], key: number): any {
+    return data.find((row) => row.key === key);
+  }
 
   ngAfterViewInit() {
     const imgElement = document.querySelector(
@@ -58,7 +213,7 @@ export class CanvasComponent implements AfterViewInit {
       this.canvas = new fabric.Canvas(this.canvasRef.nativeElement, {
         isDrawingMode: false,
       });
-
+      this.getAreaWithMeta();
       this.canvas.setBackgroundImage(
         imgElement.src,
         this.canvas.renderAll.bind(this.canvas)
@@ -96,8 +251,12 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   promptForRectangleName(): string {
-    const name = window.prompt('Please name the rectangle:');
-    return name || '';
+    //const name = window.prompt('Please name the rectangle:');
+    // return name || '';
+    if (this.is_area == '1') {
+      return this.paper_area_name;
+    }
+    return this.paper_field_name;
   }
 
   // rectangleName = window.prompt("please name the rectangle");
@@ -112,6 +271,7 @@ export class CanvasComponent implements AfterViewInit {
         fontWeight: this.labelFontWeight,
         originX: 'center',
         originY: 'bottom',
+        fill: 'blue',
       });
       this.canvas.add(newlabel);
 
@@ -121,11 +281,13 @@ export class CanvasComponent implements AfterViewInit {
   }
 
   onMouseDown(options: fabric.IEvent) {
-    console.log(options);
     if (options.target && options.target.type === 'rect') {
       // Mouse is over an existing rectangle, set the flag to true
       this.isMovingRect = true;
       this.currentRect = options.target as fabric.Rect;
+
+      this.label = this.rectLabelMap[this.currentRect.name || ''];
+      this.selectedData = this.currentRect.data;
       this.startPoint = this.currentRect.getCenterPoint();
 
       this.canvas.add(this.currentRect);
@@ -158,10 +320,36 @@ export class CanvasComponent implements AfterViewInit {
     }
   }
 
+  deleteAreaWithMeta() {
+    if (this.selectedData && this.selectedData.id) {
+      let result = confirm('Are you sure you want to delete this?');
+      if (result) {
+        this.deleteLoading = true;
+        let requestJSON =
+          '{"id":"' +
+          this.selectedData.id +
+          '","is_area":"' +
+          this.selectedData.is_area +
+          '"}';
+        let fd = new FormData();
+        fd.append('action', AppConstant.App_Action.DELETE_BLOCK_AREA_WITH_META);
+        fd.append('is_block_area', 'true');
+        fd.append('requestJSON', requestJSON);
+        this.http.httpCall(fd).subscribe((result) => {
+          this.deleteLoading = false;
+          if (result.success == AppConstant.App_Constant.RESPONSE_YES) {
+            this.toastService.show(result.message);
+            this.getAreaWithMeta();
+          }
+        });
+      }
+    }
+  }
+
   onMouseMove(options: fabric.IEvent) {
-    console.log('onMouseMove', options);
+    //console.log('onMouseMove', options);
     if (this.isMovingRect) {
-      console.log('onMouseMove - isMovingRect', this.isMovingRect);
+      //console.log('onMouseMove - isMovingRect', this.isMovingRect);
       // Existing rectangle is being moved, update its position and label
       const pointer = this.canvas.getPointer(options.e);
       const deltaX = pointer.x - this.startPoint!.x;
@@ -281,6 +469,7 @@ export class CanvasComponent implements AfterViewInit {
           );
           const area = this.currentWidth * this.currentHeight;
           const labelText = this.promptForRectangleName(); // Get label text
+          //const labelText = ''; // Get label text
           const newRectangle: RectangleData = {
             startPoint: this.startPoint,
             endPoint: endPoint,
@@ -289,6 +478,7 @@ export class CanvasComponent implements AfterViewInit {
             area: area,
             labelText: labelText, // Store label text
           };
+          this.openModal();
 
           this.showLabel(this.currentRect, labelText);
           this.rectanglesStore.push(newRectangle);
@@ -357,8 +547,7 @@ export class CanvasComponent implements AfterViewInit {
   deleteAllRectangles() {
     // Clear the rectanglesStore array
     this.rectanglesStore = [];
-    console.log(this.rectanglesStore);
-
+    this.selectedData=null;
     // Remove all rectangles from the canvas
     this.removeRectanglesFromCanvas();
 
@@ -407,7 +596,6 @@ export class CanvasComponent implements AfterViewInit {
       strokeDashArray: [5, 5],
       strokeWidth: 2,
     });
-    
 
     // Add the rectangle and its label to the canvas
     this.canvas.add(this.currentRect, label);
@@ -418,5 +606,45 @@ export class CanvasComponent implements AfterViewInit {
     this.startPoint = new fabric.Point(startX, startY);
 
     this.canvas.renderAll();
+  }
+
+  submitArea() {
+    let requestJSON =
+      '{"paper_type_code":"' +
+      this.paperTypePatternData[0].paper_type_code +
+      '","paper_type_version_code":"' +
+      this.paperTypePatternData[0].paper_type_version_code +
+      '","is_area":"' +
+      this.is_area +
+      '","paper_area_name":"' +
+      this.paper_area_name +
+      '","paper_field_name":"' +
+      this.paper_field_name +
+      '","x":"' +
+      this.startPoint?.x +
+      '","y":"' +
+      this.startPoint?.y +
+      '","height":"' +
+      this.currentHeight +
+      '","width":"' +
+      this.currentWidth +
+      '","type":"' +
+      this.is_type +
+      '","paper_block_area_id":"' +
+      this.paper_block_area_id +
+      '"}';
+    this.submitLoading = true;
+    let fd = new FormData();
+    fd.append('action', AppConstant.App_Action.ADD_BLOCK_AREA_WITH_META);
+    fd.append('is_block_area', 'true');
+    fd.append('requestJSON', requestJSON);
+    this.http.httpCall(fd).subscribe((result) => {
+      if (result.success == AppConstant.App_Constant.RESPONSE_YES) {
+        this.modalService.dismissAll();
+        this.toastService.show(result.message);
+        this.getAreaWithMeta();
+      }
+      this.submitLoading = false;
+    });
   }
 }

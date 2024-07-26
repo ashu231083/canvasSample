@@ -1,1 +1,32 @@
 /* You can add global styles to this file, and also import other style files */
+.toast-success {
+    background-color: #d4edda;
+    color: green;
+  }
+  
+  .toast-error {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  .toast-warning {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+  
+  .toast-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+  }
+  .toast-container.top-center {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1050;
+  }
+  
+  .toast-container .ngb-toast {
+    min-width: 300px; /* Optional: adjust the minimum width of toasts */
+    margin-bottom: 10px; /* Space between toasts */
+  }

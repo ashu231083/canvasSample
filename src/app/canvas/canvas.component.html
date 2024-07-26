@@ -1,85 +1,105 @@
-<div class="container">
-  <img
-    src="assets\ONT-Digital-Prescriber-Orders-Form-(smartpaper-MPGL).png"
-    class="background-image"
-    alt="no image to show"
-  />
-  <div class="canvas-section">
-    <canvas #canvas> </canvas>
+<div class="toast-container top-center">
+  <ngb-toast *ngFor="let toast of toastService.toasts"
+             class="toast-success"
+             [autohide]="true"
+             [delay]="toast.delay || 5000"
+             (hide)="toastService.remove(toast)">
+    <ng-container>{{ toast.textOrTpl }}</ng-container>
+  </ngb-toast>
   </div>
-</div>
-
-<div class="info-section">
-  <h2>Info section:</h2>
-  <div class="starting-point-box" *ngIf="getStartPoint()">
-    <h5>1.Starting Points:</h5>
-    <p>X-Axis: {{ getStartPoint()?.x | number : "1.0-0" }} unit</p>
-    <p>Y-Axis: {{ getStartPoint()?.y | number : "1.0-0" }} unit</p>
-  </div>
-  <div class="dimensions-box" *ngIf="currentHeight && currentWidth">
-    <h5>2.Shape:</h5>
-    <p>Height: {{ currentHeight | number : "1.0-0" }} unit</p>
-    <p>Width: {{ currentWidth | number : "1.0-0" }} unit</p>
-    <p>
-      <span><h5>3.Area is:</h5></span>
-      {{ currentHeight * currentWidth | number : "1.0-0" }} unit
-    </p>
-  </div>
-  <div>
+  <div style="display: flex;justify-content: center;">
     <div>
-      <h5>4.Draw Shape Manually:</h5>
-      <div class="input-container">
-        <label for="startingX">Starting X: </label>
-        <input
-          class="Input-field"
-          type="number"
-          id="startingX"
-          value=""
-          placeholder="Enter you point:"
-          [(ngModel)]="startingX"
-        />
+      <img
+        src="{{fileUrl}}"
+        class="background-image"
+        alt="no image to show"
+      />
+      <div class="canvas-section">
+        <canvas #canvas> </canvas>
       </div>
-      <div>
-        <label for="startingY">Starting Y: </label>
-        <input
-          class="Input-field"
-          type="number"
-          id="startingY"
-          value=""
-          placeholder="Enter your point:"
-          [(ngModel)]="startingY"
-        />
-      </div>
-      <div>
-        <label for="rectangleWidth">Width: </label>
-        <input
-          class="Input-field"
-          type="number"
-          id="rectangleWidth"
-          value=""
-          placeholder="Enter your point:"
-          [(ngModel)]="rectangleWidth"
-        />
-      </div>
-      <div>
-        <label for="rectangleHeight">Height: </label>
-        <input
-          class="Input-field"
-          type="number"
-          id="rectangleHeight"
-          value=""
-          placeholder="Enter your point:"
-          [(ngModel)]="rectangleHeight"
-        />
-      </div>
-      <button class="button-click" (click)="drawUserRectangle()">
-        Draw Shape
-      </button> 
-      
-      <h5>5. Erase all the shapes:</h5>
-      <button class="click-erase" (click)="deleteAllRectangles()">
-        Clear Shape
-      </button>
+      <ng-template #content let-modal>
+        <div class="modal-header">
+          <h4 class="modal-title" id="modal-basic-title">Area Type</h4>
+          <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+        </div>
+        <div class="modal-body">
+          <form #myForm="ngForm">
+            <div class="mb-3">
+              <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="area" [(ngModel)]="is_area" value="1"/>
+              <label class="form-check-label">
+                  Area
+              </label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="area" [(ngModel)]="is_area" value="0">
+              <label class="form-check-label">
+                  Sub Area
+              </label>
+              </div>
+            </div>
+            
+            <ng-container *ngIf="is_area=='1'">
+            <div class="mb-3" >
+              <input type="text" class="form-control" name="paper_area_name"  placeholder="Enter Area Name" [(ngModel)]="paper_area_name" required>
+            </div>
+            <div class="mb-3">
+              <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="is_type" [(ngModel)]="is_type" value="1"/>
+              <label class="form-check-label" >
+                  Progress Note
+              </label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="is_type" [(ngModel)]="is_type" value="0">
+              <label class="form-check-label">
+                  RX
+              </label>
+              </div>
+            </div>
+          </ng-container>
+          <ng-container *ngIf="is_area=='0'">
+            <div class="mb-3" >
+              <select class="form-select" name="paper_block_area_id" [(ngModel)]="paper_block_area_id" required>
+                <option value="">Select Area</option>
+                <option *ngFor="let area of paperBlockArea" [value]="area.id">{{area.paper_area_name}}</option>
+              </select>
+            </div>
+            <div class="mb-3" >
+              <select class="form-select" name="paper_field_name" [(ngModel)]="paper_field_name" required>
+                <option value="">Select SubArea</option>
+                <option *ngFor="let meta of areaMetaMst" [value]="meta.key">{{meta.value}}</option>
+              </select>
+            </div>
+          </ng-container>
+          
+          <button type="button" [disabled]="myForm.invalid || submitLoading" class="btn btn-success" (click)="submitArea()">Save</button>
+          </form>
+        </div>
+      </ng-template>
     </div>
-  </div>
+
+    <div class="info-section" >
+      <h5>Info section:</h5>
+      <div class="starting-point-box" *ngIf="getStartPoint()">
+        <h6>1.Starting Points:</h6>
+        <p>X-Axis: {{ getStartPoint()?.x | number : "1.0-0" }}</p>
+        <p>Y-Axis: {{ getStartPoint()?.y | number : "1.0-0" }}</p>
+        <p *ngIf="label?.text">Name: {{label?.text}}</p>
+      </div>
+      <div class="dimensions-box" *ngIf="currentHeight && currentWidth">
+        <h6>2.Shape:</h6>
+        <p>Height: {{ currentHeight | number : "1.0-0" }} unit</p>
+        <p>Width: {{ currentWidth | number : "1.0-0" }} unit</p>
+        <p>
+          <span><h6>3.Area is:</h6></span>
+          {{ currentHeight * currentWidth | number : "1.0-0" }} unit
+        </p>
+      </div>
+      <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <button type="button" class="btn btn-primary" [disabled]="previewLoading" (click)="getAreaWithMeta()">Preview</button>
+        <button type="button" class="btn btn-danger" (click)="deleteAllRectangles()">Clear</button>
+        <button type="button" class="btn btn-primary" [disabled]="deleteLoading" *ngIf="selectedData && selectedData.id" (click)="deleteAreaWithMeta()">Delete</button>
+      </div>
+    </div>
 </div>
