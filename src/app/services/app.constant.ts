@@ -1,8 +1,8 @@
 export class AppConstant {
   public static App_Constant = {
     //URL: 'http://localhost:8082/Projects/WestHill/Westhill-ePaper/smartpaper/portal-api/index.php?',
-    URL: 'https://westhill-epaper-qa.smartrxhub.com/smartpaper/portal-api/index.php?',
-    FILE_URL: 'https://westhill-epaper-qa.smartrxhub.com/smartpaper/',
+    URL: 'https://westhill-epaper.smartrxhub.com/smartpaper/portal-api/index.php?',
+    FILE_URL: 'https://westhill-epaper.smartrxhub.com/smartpaper/',
     RESPONSE_YES: 'yes',
     RESPONSE_NO: 'no',
   };
